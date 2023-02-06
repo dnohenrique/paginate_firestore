@@ -24,19 +24,27 @@ class PaginationCubit extends Cubit<PaginationState> {
   final bool isLive;
   final bool includeMetadataChanges;
   final GetOptions? options;
-
+  //final String? _searchTerm;
   final _streams = <StreamSubscription<QuerySnapshot>>[];
 
-  void filterPaginatedList(String searchTerm) {
+  void filterPaginatedList(String searchTerm, List<Object> searchSelect) {
     if (state is PaginationLoaded) {
       final loadedState = state as PaginationLoaded;
 
       final filteredList = loadedState.documentSnapshots
-          .where((document) => document
-              .data()
-              .toString()
-              .toLowerCase()
-              .contains(searchTerm.toLowerCase()))
+          .where((document) => ((searchTerm == 'all' ||
+                  document
+                      .data()
+                      .toString()
+                      .toLowerCase()
+                      .contains(searchTerm.toLowerCase())) &&
+              (searchSelect.any((s) =>
+                  s == 'all' ||
+                  document
+                      .data()
+                      .toString()
+                      .toLowerCase()
+                      .contains(s.toString().toLowerCase())))))
           .toList();
 
       emit(loadedState.copyWith(

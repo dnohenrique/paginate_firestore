@@ -34,4 +34,17 @@ class PaginateFilterChangeListener extends PaginateChangeListener {
   String get searchTerm {
     return _filterTerm;
   }
+
+  late List<String> _filterSelect;
+
+  set searchSelect(List<String> value) {
+    _filterSelect = value;
+    if (value.isNotEmpty) {
+      notifyListeners();
+    }
+  }
+
+  List<String> get searchSelect {
+    return _filterSelect;
+  }
 }
