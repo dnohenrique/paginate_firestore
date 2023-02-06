@@ -44,10 +44,12 @@ class PaginateFirestore extends StatefulWidget {
     this.pageController,
     this.onPageChanged,
     this.header,
+    this.subheader,
     this.footer,
     this.isLive = false,
     this.includeMetadataChanges = false,
     this.options,
+    this.color,
   }) : super(key: key);
 
   final Widget bottomLoader;
@@ -71,7 +73,9 @@ class PaginateFirestore extends StatefulWidget {
   final bool isLive;
   final DocumentSnapshot? startAfterDocument;
   final Widget? header;
+  final Widget? subheader;
   final Widget? footer;
+  final Color? color;
 
   /// Use this only if `isLive = false`
   final GetOptions? options;
@@ -118,11 +122,8 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
             widget.onReachedEnd!(loadedState);
           }
 
-          if (loadedState.documentSnapshots.isEmpty) {
-            return _buildWithScrollView(context, widget.onEmpty);
-          }
           return widget.itemBuilderType == PaginateBuilderType.listView
-              ? _buildListView(loadedState)
+              ? _buildListView(loadedState, widget.onEmpty)
               : widget.itemBuilderType == PaginateBuilderType.gridView
                   ? _buildGridView(loadedState)
                   : _buildPageView(loadedState);
@@ -160,9 +161,8 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
           });
         } else if (listener is PaginateFilterChangeListener) {
           listener.addListener(() {
-            if (listener.searchTerm.isNotEmpty) {
-              _cubit!.filterPaginatedList(listener.searchTerm);
-            }
+            _cubit!.filterPaginatedList(
+                listener.searchTerm, listener.searchSelect);
           });
         }
       }
@@ -187,12 +187,16 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
       keyboardDismissBehavior: widget.keyboardDismissBehavior,
       slivers: [
         if (widget.header != null) widget.header!,
+        if (widget.subheader != null) widget.subheader!,
         SliverPadding(
           padding: widget.padding,
           sliver: SliverGrid(
             gridDelegate: widget.gridDelegate,
             delegate: SliverChildBuilderDelegate(
               (context, index) {
+                if (loadedState.documentSnapshots.isEmpty) {
+                  return emptyWidget;
+                }
                 if (index >= loadedState.documentSnapshots.length) {
                   _cubit!.fetchPaginatedList();
                   return widget.bottomLoader;
@@ -227,54 +231,62 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
     return gridView;
   }
 
-  Widget _buildListView(PaginationLoaded loadedState) {
-    var listView = CustomScrollView(
-      reverse: widget.reverse,
-      controller: widget.scrollController,
-      shrinkWrap: widget.shrinkWrap,
-      scrollDirection: widget.scrollDirection,
-      physics: widget.physics,
-      keyboardDismissBehavior: widget.keyboardDismissBehavior,
-      slivers: [
-        if (widget.header != null) widget.header!,
-        SliverPadding(
-          padding: widget.padding,
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final itemIndex = index ~/ 2;
-                if (index.isEven) {
-                  if (itemIndex >= loadedState.documentSnapshots.length) {
-                    _cubit!.fetchPaginatedList();
-                    return widget.bottomLoader;
+  Widget _buildListView(PaginationLoaded loadedState, Widget? emptyWidget) {
+    var listView = Container(
+      color: widget.color,
+      child: CustomScrollView(
+        reverse: widget.reverse,
+        controller: widget.scrollController,
+        shrinkWrap: widget.shrinkWrap,
+        scrollDirection: widget.scrollDirection,
+        physics: widget.physics,
+        keyboardDismissBehavior: widget.keyboardDismissBehavior,
+        slivers: [
+          if (widget.header != null) widget.header!,
+          if (widget.subheader != null) widget.subheader!,
+          SliverPadding(
+            padding: widget.padding,
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (loadedState.documentSnapshots.isEmpty) {
+                    return emptyWidget;
                   }
-                  return widget.itemBuilder(
-                    context,
-                    loadedState.documentSnapshots,
-                    itemIndex,
-                  );
-                }
-                return widget.separator;
-              },
-              semanticIndexCallback: (widget, localIndex) {
-                if (localIndex.isEven) {
-                  return localIndex ~/ 2;
-                }
-                // ignore: avoid_returning_null
-                return null;
-              },
-              childCount: max(
-                  0,
-                  (loadedState.hasReachedEnd
-                              ? loadedState.documentSnapshots.length
-                              : loadedState.documentSnapshots.length + 1) *
-                          2 -
-                      1),
+
+                  final itemIndex = index ~/ 2;
+                  if (index.isEven) {
+                    if (itemIndex >= loadedState.documentSnapshots.length) {
+                      _cubit!.fetchPaginatedList();
+                      return widget.bottomLoader;
+                    }
+                    return widget.itemBuilder(
+                      context,
+                      loadedState.documentSnapshots,
+                      itemIndex,
+                    );
+                  }
+                  return widget.separator;
+                },
+                semanticIndexCallback: (widget, localIndex) {
+                  if (localIndex.isEven) {
+                    return localIndex ~/ 2;
+                  }
+                  // ignore: avoid_returning_null
+                  return null;
+                },
+                childCount: max(
+                    0,
+                    (loadedState.hasReachedEnd
+                                ? loadedState.documentSnapshots.length
+                                : loadedState.documentSnapshots.length + 1) *
+                            2 -
+                        1),
+              ),
             ),
           ),
-        ),
-        if (widget.footer != null) widget.footer!,
-      ],
+          if (widget.footer != null) widget.footer!,
+        ],
+      ),
     );
 
     if (widget.listeners != null && widget.listeners!.isNotEmpty) {
