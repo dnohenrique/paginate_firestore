@@ -123,7 +123,7 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
           }
 
           return widget.itemBuilderType == PaginateBuilderType.listView
-              ? _buildListView(loadedState, widget.onEmpty)
+              ? _buildListView(loadedState)
               : widget.itemBuilderType == PaginateBuilderType.gridView
                   ? _buildGridView(loadedState)
                   : _buildPageView(loadedState);
@@ -162,7 +162,18 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
         } else if (listener is PaginateFilterChangeListener) {
           listener.addListener(() {
             _cubit!.filterPaginatedList(
-                listener.searchTerm, listener.searchSelect);
+              listener.searchTerm,
+              listener.searchSelect,
+            );
+          });
+        } else if (listener is PaginateQueryChangeListener) {
+          listener.addListener(() {
+            if (listener.query == null) {
+              return;
+            }
+            _cubit!.filterQueryPaginatedList(
+              listener.query,
+            );
           });
         }
       }
@@ -195,7 +206,7 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 if (loadedState.documentSnapshots.isEmpty) {
-                  return emptyWidget;
+                  return widget.onEmpty;
                 }
                 if (index >= loadedState.documentSnapshots.length) {
                   _cubit!.fetchPaginatedList();
@@ -231,7 +242,7 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
     return gridView;
   }
 
-  Widget _buildListView(PaginationLoaded loadedState, Widget? emptyWidget) {
+  Widget _buildListView(PaginationLoaded loadedState) {
     var listView = Container(
       color: widget.color,
       child: CustomScrollView(
@@ -250,7 +261,7 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   if (loadedState.documentSnapshots.isEmpty) {
-                    return emptyWidget;
+                    return widget.onEmpty;
                   }
 
                   final itemIndex = index ~/ 2;
@@ -315,6 +326,9 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
         onPageChanged: widget.onPageChanged,
         childrenDelegate: SliverChildBuilderDelegate(
           (context, index) {
+            if (loadedState.documentSnapshots.isEmpty) {
+              return widget.onEmpty;
+            }
             if (index >= loadedState.documentSnapshots.length) {
               _cubit!.fetchPaginatedList();
               return widget.bottomLoader;

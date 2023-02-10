@@ -26,21 +26,24 @@ class PaginationCubit extends Cubit<PaginationState> {
   final GetOptions? options;
   //final String? _searchTerm;
   final _streams = <StreamSubscription<QuerySnapshot>>[];
+  var _searchTerm = '';
+  var _searchSelect = [];
 
   void filterPaginatedList(String searchTerm, List<Object> searchSelect) {
     if (state is PaginationLoaded) {
       final loadedState = state as PaginationLoaded;
+      _searchTerm = searchTerm;
+      _searchSelect = searchSelect;
 
       final filteredList = loadedState.documentSnapshots
-          .where((document) => ((searchTerm == 'all' ||
+          .where((document) => ((searchTerm.isEmpty ||
                   document
                       .data()
                       .toString()
                       .toLowerCase()
                       .contains(searchTerm.toLowerCase())) &&
-              (searchSelect.any((s) =>
-                  s == 'all' ||
-                  document
+              (searchSelect.isEmpty &&
+                  searchSelect.any((s) => document
                       .data()
                       .toString()
                       .toLowerCase()
@@ -51,6 +54,21 @@ class PaginationCubit extends Cubit<PaginationState> {
         documentSnapshots: filteredList,
         hasReachedEnd: loadedState.hasReachedEnd,
       ));
+    }
+  }
+
+  void filterQueryPaginatedList(Query newQuery) async {
+    final localQuery = newQuery;
+    if (isLive) {
+      final listener = localQuery
+          .snapshots(includeMetadataChanges: includeMetadataChanges)
+          .listen((querySnapshot) {
+        _emitPaginatedState(querySnapshot.docs);
+      });
+      _streams.add(listener);
+    } else {
+      final querySnapshot = await localQuery.get(options);
+      _emitPaginatedState(querySnapshot.docs);
     }
   }
 

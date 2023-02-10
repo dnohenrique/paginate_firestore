@@ -26,9 +26,7 @@ class PaginateFilterChangeListener extends PaginateChangeListener {
 
   set searchTerm(String value) {
     _filterTerm = value;
-    if (value.isNotEmpty) {
-      notifyListeners();
-    }
+    notifyListeners();
   }
 
   String get searchTerm {
@@ -39,12 +37,25 @@ class PaginateFilterChangeListener extends PaginateChangeListener {
 
   set searchSelect(List<String> value) {
     _filterSelect = value;
-    if (value.isNotEmpty) {
-      notifyListeners();
-    }
+    notifyListeners();
   }
 
   List<String> get searchSelect {
     return _filterSelect;
+  }
+}
+
+class PaginateQueryChangeListener extends PaginateChangeListener {
+  PaginateQueryChangeListener();
+
+  dynamic? _query;
+
+  set query(dynamic value) {
+    _query = value;
+    notifyListeners();
+  }
+
+  dynamic? get query {
+    return _query;
   }
 }
