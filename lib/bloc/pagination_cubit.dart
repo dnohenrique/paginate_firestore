@@ -17,7 +17,6 @@ class PaginationCubit extends Cubit<PaginationState> {
     this.options,
   }) : super(PaginationInitial());
 
-  DocumentSnapshot? _lastDocument;
   final int _limit;
   final Query _query;
   final DocumentSnapshot? _startAfterDocument;
@@ -25,67 +24,75 @@ class PaginationCubit extends Cubit<PaginationState> {
   final bool includeMetadataChanges;
   final GetOptions? options;
   //final String? _searchTerm;
-  final _streams = <StreamSubscription<QuerySnapshot>>[];
-  var _searchTerm = '';
-  var _searchSelect = [];
+  final _streams = <StreamSubscription<List<QueryDocumentSnapshot>>>[];
+  String _searchTerm = '';
+  List<Object> _searchSelect = [];
+  List<QueryDocumentSnapshot> listAll = [];
+  List<QueryDocumentSnapshot> listView = [];
+  int pageNumber = 1;
+  int limit = 10;
 
   void filterPaginatedList(String searchTerm, List<Object> searchSelect) {
-    if (state is PaginationLoaded) {
-      final loadedState = state as PaginationLoaded;
-      _searchTerm = searchTerm;
-      _searchSelect = searchSelect;
+    // if (state is PaginationLoaded) {
+    //   final loadedState = state as PaginationLoaded;
+    _searchTerm = searchTerm;
+    _searchSelect = searchSelect;
 
-      final filteredList = loadedState.documentSnapshots
-          .where((document) => ((searchTerm.isEmpty ||
-                  document
-                      .data()
-                      .toString()
-                      .toLowerCase()
-                      .contains(searchTerm.toLowerCase())) &&
-              (searchSelect.isEmpty &&
-                  searchSelect.any((s) => document
-                      .data()
-                      .toString()
-                      .toLowerCase()
-                      .contains(s.toString().toLowerCase())))))
-          .toList();
+    pageNumber = 1;
+    listView = [];
 
-      emit(loadedState.copyWith(
-        documentSnapshots: filteredList,
-        hasReachedEnd: loadedState.hasReachedEnd,
-      ));
-    }
+    _emitPaginatedState();
   }
 
-  void filterQueryPaginatedList(Query newQuery) async {
-    final localQuery = newQuery;
-    if (isLive) {
-      final listener = localQuery
-          .snapshots(includeMetadataChanges: includeMetadataChanges)
-          .listen((querySnapshot) {
-        _emitPaginatedState(querySnapshot.docs);
-      });
-      _streams.add(listener);
-    } else {
-      final querySnapshot = await localQuery.get(options);
-      _emitPaginatedState(querySnapshot.docs);
-    }
+  List<QueryDocumentSnapshot> filterList() {
+    final listFilter = listAll
+        .where((document) => ((_searchTerm.isEmpty ||
+                ((document.data() as Map<String, dynamic>)['headline1'])
+                    .toString()
+                    .toLowerCase()
+                    .contains(_searchTerm.toLowerCase())) &&
+            (_searchSelect.isEmpty ||
+                _searchSelect.any((s) =>
+                    ((document.data() as Map<String, dynamic>)['filter1'])
+                        .toString()
+                        .toLowerCase()
+                        .contains(s.toString().toLowerCase())))))
+        .toList();
+
+    return listFilter;
   }
+
+  // void filterQueryPaginatedList(Query newQuery) async {
+  //   if (isLive) {
+  //     final listener = _query
+  //         .snapshots(includeMetadataChanges: includeMetadataChanges)
+  //         .listen((querySnapshot) {
+  //       _emitPaginatedState(querySnapshot.docs);
+  //     });
+  //     _streams.add(listener);
+  //   } else {
+  //     final querySnapshot = await _query.get(options);
+  //     _emitPaginatedState(querySnapshot.docs);
+  //   }
+  // }
 
   void refreshPaginatedList() async {
-    _lastDocument = null;
-    final localQuery = _getQuery();
+    pageNumber = 1;
+
     if (isLive) {
-      final listener = localQuery
+      final listener = _query
           .snapshots(includeMetadataChanges: includeMetadataChanges)
           .listen((querySnapshot) {
-        _emitPaginatedState(querySnapshot.docs);
+        listAll = querySnapshot.docs;
+
+        _emitPaginatedState();
       });
 
-      _streams.add(listener);
+      //_streams.add(listener);
     } else {
-      final querySnapshot = await localQuery.get(options);
-      _emitPaginatedState(querySnapshot.docs);
+      final querySnapshot = await _query.get(options);
+      listAll = querySnapshot.docs;
+      _emitPaginatedState();
     }
   }
 
@@ -94,19 +101,13 @@ class PaginationCubit extends Cubit<PaginationState> {
   }
 
   _getDocuments() async {
-    final localQuery = _getQuery();
     try {
       if (state is PaginationInitial) {
         refreshPaginatedList();
       } else if (state is PaginationLoaded) {
         final loadedState = state as PaginationLoaded;
         if (loadedState.hasReachedEnd) return;
-        final querySnapshot = await localQuery.get(options);
-        _emitPaginatedState(
-          querySnapshot.docs,
-          previousList:
-              loadedState.documentSnapshots as List<QueryDocumentSnapshot>,
-        );
+        _emitPaginatedState();
       }
     } on PlatformException catch (exception) {
       // ignore: avoid_print
@@ -116,36 +117,38 @@ class PaginationCubit extends Cubit<PaginationState> {
   }
 
   _getLiveDocuments() {
-    final localQuery = _getQuery();
     if (state is PaginationInitial) {
       refreshPaginatedList();
     } else if (state is PaginationLoaded) {
       PaginationLoaded loadedState = state as PaginationLoaded;
       if (loadedState.hasReachedEnd) return;
-      final listener = localQuery
-          .snapshots(includeMetadataChanges: includeMetadataChanges)
-          .listen((querySnapshot) {
-        loadedState = state as PaginationLoaded;
-        _emitPaginatedState(
-          querySnapshot.docs,
-          previousList:
-              loadedState.documentSnapshots as List<QueryDocumentSnapshot>,
-        );
-      });
 
-      _streams.add(listener);
+      _emitPaginatedState();
     }
   }
 
-  void _emitPaginatedState(
-    List<QueryDocumentSnapshot> newList, {
-    List<QueryDocumentSnapshot> previousList = const [],
-  }) {
-    _lastDocument = newList.isNotEmpty ? newList.last : null;
+  void _emitPaginatedState() {
+    List<QueryDocumentSnapshot> list = listAll;
+
+    if (_searchTerm.isNotEmpty || _searchSelect.isNotEmpty) {
+      list = filterList();
+    }
+
+    final listPaginate = _paginate(list);
+    listView = _mergeSnapshots(listView, listPaginate);
+
+    final _lastDocument = list.length == listView.length;
+
     emit(PaginationLoaded(
-      documentSnapshots: _mergeSnapshots(previousList, newList),
-      hasReachedEnd: newList.isEmpty,
+      documentSnapshots: listView,
+      hasReachedEnd: _lastDocument,
     ));
+    pageNumber++;
+  }
+
+  List<QueryDocumentSnapshot> _paginate(List<QueryDocumentSnapshot> list) {
+    final limitFinal = list.length < limit ? list.length : limit;
+    return list.sublist((pageNumber - 1) * limitFinal, pageNumber * limitFinal);
   }
 
   List<QueryDocumentSnapshot> _mergeSnapshots(
@@ -157,15 +160,15 @@ class PaginationCubit extends Cubit<PaginationState> {
     return previousList + newList;
   }
 
-  Query _getQuery() {
-    var localQuery = (_lastDocument != null)
-        ? _query.startAfterDocument(_lastDocument!)
-        : _startAfterDocument != null
-            ? _query.startAfterDocument(_startAfterDocument!)
-            : _query;
-    localQuery = localQuery.limit(_limit);
-    return localQuery;
-  }
+  // Query _getQuery() {
+  //   // var localQuery = (_lastDocument != null)
+  //   //     ? _query.startAfterDocument(_lastDocument!)
+  //   //     : _startAfterDocument != null
+  //   //         ? _query.startAfterDocument(_startAfterDocument!)
+  //   //         : _query;
+  //   // localQuery = localQuery.limit(_limit);
+  //   return _query;
+  // }
 
   void dispose() {
     for (var listener in _streams) {

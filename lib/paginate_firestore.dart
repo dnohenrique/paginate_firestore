@@ -166,16 +166,18 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
               listener.searchSelect,
             );
           });
-        } else if (listener is PaginateQueryChangeListener) {
-          listener.addListener(() {
-            if (listener.query == null) {
-              return;
-            }
-            _cubit!.filterQueryPaginatedList(
-              listener.query,
-            );
-          });
         }
+
+        // else if (listener is PaginateQueryChangeListener) {
+        //   listener.addListener(() {
+        //     if (listener.query == null) {
+        //       return;
+        //     }
+        //     _cubit!.filterQueryPaginatedList(
+        //       listener.query,
+        //     );
+        //   });
+        // }
       }
     }
 
@@ -285,13 +287,16 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
                   // ignore: avoid_returning_null
                   return null;
                 },
-                childCount: max(
-                    0,
-                    (loadedState.hasReachedEnd
-                                ? loadedState.documentSnapshots.length
-                                : loadedState.documentSnapshots.length + 1) *
-                            2 -
-                        1),
+                childCount: loadedState.documentSnapshots.isEmpty
+                    ? 1
+                    : max(
+                        0,
+                        (loadedState.hasReachedEnd
+                                    ? loadedState.documentSnapshots.length
+                                    : loadedState.documentSnapshots.length +
+                                        1) *
+                                2 -
+                            1),
               ),
             ),
           ),
