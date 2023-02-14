@@ -148,7 +148,9 @@ class PaginationCubit extends Cubit<PaginationState> {
 
   List<QueryDocumentSnapshot> _paginate(List<QueryDocumentSnapshot> list) {
     final limitFinal = list.length < limit ? list.length : limit;
-    return list.sublist((pageNumber - 1) * limitFinal, pageNumber * limitFinal);
+    final start = (pageNumber - 1) * limitFinal;
+    final end = pageNumber * limitFinal;
+    return list.sublist(start, end > list.length ? list.length : end);
   }
 
   List<QueryDocumentSnapshot> _mergeSnapshots(
