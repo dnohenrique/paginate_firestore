@@ -84,7 +84,7 @@ class PaginationCubit extends Cubit<PaginationState> {
           .snapshots(includeMetadataChanges: includeMetadataChanges)
           .listen((querySnapshot) {
         listAll = querySnapshot.docs;
-
+        listView = [];
         _emitPaginatedState();
       });
 
@@ -92,6 +92,7 @@ class PaginationCubit extends Cubit<PaginationState> {
     } else {
       final querySnapshot = await _query.get(options);
       listAll = querySnapshot.docs;
+      listView = [];
       _emitPaginatedState();
     }
   }
@@ -122,7 +123,6 @@ class PaginationCubit extends Cubit<PaginationState> {
     } else if (state is PaginationLoaded) {
       PaginationLoaded loadedState = state as PaginationLoaded;
       if (loadedState.hasReachedEnd) return;
-
       _emitPaginatedState();
     }
   }
@@ -136,14 +136,15 @@ class PaginationCubit extends Cubit<PaginationState> {
 
     final listPaginate = _paginate(list);
     listView = _mergeSnapshots(listView, listPaginate);
-
     final _lastDocument = list.length == listView.length;
 
     emit(PaginationLoaded(
       documentSnapshots: listView,
       hasReachedEnd: _lastDocument,
     ));
-    pageNumber++;
+    if (!_lastDocument) {
+      pageNumber++;
+    }
   }
 
   List<QueryDocumentSnapshot> _paginate(List<QueryDocumentSnapshot> list) {
