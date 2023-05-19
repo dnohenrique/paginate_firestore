@@ -128,22 +128,25 @@ class PaginationCubit extends Cubit<PaginationState> {
   }
 
   void _emitPaginatedState() {
-    List<QueryDocumentSnapshot> list = listAll;
+    try {
+      List<QueryDocumentSnapshot> list = listAll;
+      if (_searchTerm.isNotEmpty || _searchSelect.isNotEmpty) {
+        list = filterList();
+      }
+      final listPaginate = _paginate(list);
+      listView = _mergeSnapshots(listView, listPaginate);
+      final _lastDocument = list.length == listView.length;
 
-    if (_searchTerm.isNotEmpty || _searchSelect.isNotEmpty) {
-      list = filterList();
-    }
+      emit(PaginationLoaded(
+        documentSnapshots: listView,
+        hasReachedEnd: _lastDocument,
+      ));
 
-    final listPaginate = _paginate(list);
-    listView = _mergeSnapshots(listView, listPaginate);
-    final _lastDocument = list.length == listView.length;
-
-    emit(PaginationLoaded(
-      documentSnapshots: listView,
-      hasReachedEnd: _lastDocument,
-    ));
-    if (!_lastDocument) {
-      pageNumber++;
+      if (!_lastDocument) {
+        pageNumber++;
+      }
+    } catch (e, s) {
+      //TODO: temos uma exception aqui que pode causa danos a funcionalidade
     }
   }
 
