@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:medkortex/features/home/presentation/components/slivers_high.dart';
 
 import 'bloc/pagination_cubit.dart';
 import 'bloc/pagination_listeners.dart';
@@ -50,6 +51,7 @@ class PaginateFirestore extends StatefulWidget {
     this.includeMetadataChanges = false,
     this.options,
     this.color,
+    this.tabs,
   }) : super(key: key);
 
   final Widget bottomLoader;
@@ -76,6 +78,7 @@ class PaginateFirestore extends StatefulWidget {
   final Widget? subheader;
   final Widget? footer;
   final Color? color;
+  final List<Widget>? tabs;
 
   /// Use this only if `isLive = false`
   final GetOptions? options;
@@ -122,14 +125,124 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
             widget.onReachedEnd!(loadedState);
           }
 
-          return widget.itemBuilderType == PaginateBuilderType.listView
-              ? _buildListView(loadedState)
-              : widget.itemBuilderType == PaginateBuilderType.gridView
-                  ? _buildGridView(loadedState)
-                  : _buildPageView(loadedState);
+          switch (widget.itemBuilderType) {
+            case PaginateBuilderType.tabView:
+              return _buildListTabView(loadedState);
+            case PaginateBuilderType.listView:
+              return _buildListView(loadedState);
+            case PaginateBuilderType.gridView:
+              return _buildGridView(loadedState);
+            default:
+              return _buildPageView(loadedState);
+          }
         }
       },
     );
+  }
+
+  Widget _buildListTabView(PaginationLoaded loadedState) {
+    var listView = DefaultTabController(
+      length: 2,
+      child: Container(
+        color: widget.color,
+        child: CustomScrollView(
+          reverse: widget.reverse,
+          controller: widget.scrollController,
+          shrinkWrap: widget.shrinkWrap,
+          scrollDirection: widget.scrollDirection,
+          physics: widget.physics,
+          keyboardDismissBehavior: widget.keyboardDismissBehavior,
+          slivers: [
+            if (widget.header != null) widget.header!,
+            if (widget.subheader != null) widget.subheader!,
+            SliverPersistentHeader(
+              pinned: true,
+              floating: false,
+              delegate: SliverAppBarDelegate(
+                minHeight: 70,
+                maxHeight: 70,
+                child: Column(
+                  children: [
+                    TabBar(
+                      onTap: (index) {
+                        print('my index is' + index.toString());
+                      },
+                      tabs: widget.tabs!,
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey.withOpacity(0.3),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: widget.padding,
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (loadedState.documentSnapshots.isEmpty) {
+                      return widget.onEmpty;
+                    }
+
+                    final itemIndex = index ~/ 2;
+                    if (index.isEven) {
+                      if (itemIndex >= loadedState.documentSnapshots.length) {
+                        _cubit!.fetchPaginatedList();
+                        return widget.bottomLoader;
+                      }
+                      return widget.itemBuilder(
+                        context,
+                        loadedState.documentSnapshots,
+                        itemIndex,
+                      );
+                    }
+                    return widget.separator;
+                  },
+                  semanticIndexCallback: (widget, localIndex) {
+                    if (localIndex.isEven) {
+                      return localIndex ~/ 2;
+                    }
+                    // ignore: avoid_returning_null
+                    return null;
+                  },
+                  childCount: loadedState.documentSnapshots.isEmpty
+                      ? 1
+                      : max(
+                          0,
+                          (loadedState.hasReachedEnd
+                                      ? loadedState.documentSnapshots.length
+                                      : loadedState.documentSnapshots.length +
+                                          1) *
+                                  2 -
+                              1),
+                ),
+              ),
+            ),
+            if (widget.footer != null) widget.footer!,
+          ],
+        ),
+      ),
+    );
+
+    if (widget.listeners != null && widget.listeners!.isNotEmpty) {
+      return MultiProvider(
+        providers: widget.listeners!
+            .map((_listener) => ChangeNotifierProvider(
+                  create: (context) => _listener,
+                ))
+            .toList(),
+        child: listView,
+      );
+    }
+
+    return listView;
   }
 
   Widget _buildWithScrollView(BuildContext context, Widget child) {
@@ -167,17 +280,6 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
             );
           });
         }
-
-        // else if (listener is PaginateQueryChangeListener) {
-        //   listener.addListener(() {
-        //     if (listener.query == null) {
-        //       return;
-        //     }
-        //     _cubit!.filterQueryPaginatedList(
-        //       listener.query,
-        //     );
-        //   });
-        // }
       }
     }
 
@@ -366,4 +468,4 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
   }
 }
 
-enum PaginateBuilderType { listView, gridView, pageView }
+enum PaginateBuilderType { listView, gridView, pageView, tabView }
