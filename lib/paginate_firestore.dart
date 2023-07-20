@@ -17,42 +17,43 @@ import 'widgets/error_display.dart';
 import 'widgets/initial_loader.dart';
 
 class PaginateFirestore extends StatefulWidget {
-  const PaginateFirestore({
-    Key? key,
-    required this.itemBuilder,
-    required this.query,
-    required this.itemBuilderType,
-    this.gridDelegate =
-        const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
-    this.startAfterDocument,
-    this.itemsPerPage = 15,
-    this.onError,
-    this.onReachedEnd,
-    this.onLoaded,
-    this.onEmpty = const EmptyDisplay(),
-    this.separator = const EmptySeparator(),
-    this.initialLoader = const InitialLoader(),
-    this.bottomLoader = const BottomLoader(),
-    this.shrinkWrap = false,
-    this.reverse = false,
-    this.scrollDirection = Axis.vertical,
-    this.padding = const EdgeInsets.all(0),
-    this.physics,
-    this.listeners,
-    this.scrollController,
-    this.allowImplicitScrolling = false,
-    this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.manual,
-    this.pageController,
-    this.onPageChanged,
-    this.header,
-    this.subheader,
-    this.footer,
-    this.isLive = false,
-    this.includeMetadataChanges = false,
-    this.options,
-    this.color,
-    this.tabs,
-  }) : super(key: key);
+  const PaginateFirestore(
+      {Key? key,
+      required this.itemBuilder,
+      required this.query,
+      required this.itemBuilderType,
+      this.gridDelegate =
+          const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
+      this.startAfterDocument,
+      this.itemsPerPage = 15,
+      this.onError,
+      this.onReachedEnd,
+      this.onLoaded,
+      this.onEmpty = const EmptyDisplay(),
+      this.separator = const EmptySeparator(),
+      this.initialLoader = const InitialLoader(),
+      this.bottomLoader = const BottomLoader(),
+      this.shrinkWrap = false,
+      this.reverse = false,
+      this.scrollDirection = Axis.vertical,
+      this.padding = const EdgeInsets.all(0),
+      this.physics,
+      this.listeners,
+      this.scrollController,
+      this.allowImplicitScrolling = false,
+      this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.manual,
+      this.pageController,
+      this.onPageChanged,
+      this.header,
+      this.subheader,
+      this.footer,
+      this.isLive = false,
+      this.includeMetadataChanges = false,
+      this.options,
+      this.color,
+      this.tabs,
+      this.onTap})
+      : super(key: key);
 
   final Widget bottomLoader;
   final Widget onEmpty;
@@ -79,6 +80,7 @@ class PaginateFirestore extends StatefulWidget {
   final Widget? footer;
   final Color? color;
   final List<Widget>? tabs;
+  final Function(int)? onTap;
 
   /// Use this only if `isLive = false`
   final GetOptions? options;
@@ -164,9 +166,7 @@ class _PaginateFirestoreState extends State<PaginateFirestore> {
                 child: Column(
                   children: [
                     TabBar(
-                      onTap: (index) {
-                        print('my index is' + index.toString());
-                      },
+                      onTap: widget.onTap,
                       tabs: widget.tabs!,
                     ),
                     Container(
